@@ -8,7 +8,6 @@
 
 
 rs_allocation textureDot;
-rs_allocation textureBg;
 rs_allocation textureVignette;
 
 rs_program_vertex vertBg;
@@ -20,33 +19,37 @@ rs_program_fragment fragDots;
 rs_program_store storeAlpha;
 rs_program_store storeAdd;
 
-typedef struct __attribute__((packed, aligned(4))) Particle {
-    float3 position;
-    float offsetX;
+typedef struct VpConsts {
+    rs_matrix4x4 MVP;
     float scaleSize;
+} VpConsts_t;
+VpConsts_t *vpConstants;
+
+typedef struct Particle {
+    float3 position;
     float speed;
     float wander;
     float alphaStart;
     float alpha;
-    float life;
-    float death;
+    int life;
+    int death;
 } Particle_t;
+Particle_t *dotParticles;
 
-typedef struct VpConsts {
-    rs_matrix4x4 MVP;
-} VpConsts_t;
-VpConsts_t *vpConstants;
 
-Particle_t *dotParticles; 
+typedef struct VertexColor_s {
+    float3 position;
+    float4 color;
+    float offsetX;
+
+} VertexColor;
+VertexColor* vertexColors;
+
 rs_mesh dotMesh;
-
+rs_mesh gBackgroundMesh;
 
 float densityDPI;
-float xOffset;
-
-
-
-
+float xOffset = 0.0;
 
 #define B 0x100
 #define BM 0xff
@@ -149,151 +152,100 @@ static float noisef2(float x, float y)
     q = g2[b11]; v = rx1 * q[0] + ry1 * q[1];
     b = mix(u, v, sx);
 
-    //return 1.5f * mix(a, b, sy);
-    return 8.0f * mix(a, b, sy);
+    return 1.5f * mix(a, b, sy);
 }
 
-
-
-
-
-
 void positionParticles(){
-    rsDebug("HELLO!!!!!!!!!!", rsUptimeMillis());
-
-    float width = rsgGetWidth();
-    float height = rsgGetHeight();
-
     Particle_t* particle = dotParticles;
     int size = rsAllocationGetDimX(rsGetAllocation(dotParticles));
-    
-    
-    
     for(int i=0; i<size; i++){
-    
-
         particle->position.x = rsRand(-1.0f, 1.0f);
         particle->position.y = rsRand(-1.0f, 1.0f);
-        particle->scaleSize = densityDPI/240.0f;
-        particle->position.z = 0.0;
-        particle->offsetX = xOffset;
         particle->speed = rsRand(0.0002f, 0.02f);
         particle->wander = rsRand(0.50f, 1.5f);
-        particle->death = 0.0;
-        particle->life = rsRand(300.0, 800.0f);
+        particle->death = 0;
+        particle->life = rsRand(300, 800);
         particle->alphaStart = rsRand(0.01f, 1.0f);
         particle->alpha = particle->alphaStart;
         particle++;
-        
-        float dist = sqrt(particle->position.x*particle->position.x + particle->position.y*particle->position.y);
-        if(dist < 0.75){
-            dist = 0;
-        } else {
-            dist = dist-0.75;
-        }
-        if(particle->alpha < 1.0f){
-            particle->alpha+=0.01;
-            particle->alpha *= (1-dist);
-        }
-        
     }
-    
-    
-    
-    
 }
 
-
-
 int root(){
-    float width = rsgGetWidth();
-    float height = rsgGetHeight();
-    
-    
-    
-    rsgClearColor(0.0f, 0.f, 0.f, 0.5f);
-    
-    rsgBindProgramStore(storeAdd);
-    
-    // bg
-    rsgBindProgramVertex(vertBg);
-    rsgBindProgramFragment(fragBg);
-    
-    rsgBindTexture(fragBg, 0, textureBg);
-    rsgDrawRect(0.0f, 0.0f, width, height, 0.0f);
-    
-    
+    rsgClearColor(0.0, 0.0, 0.0, 1.0f);
+
+    VertexColor* vert = vertexColors;
+    int size = rsAllocationGetDimX(rsGetAllocation(vertexColors));
+    for(int i=0; i<size; i++){
+        vert->offsetX = xOffset;
+        vert++;
+    }
+
     rsgBindProgramVertex(vertDots);
     rsgBindProgramFragment(fragDots);
     rsgBindTexture(fragDots, 0, textureDot);
-    
-    // dots
-    Particle_t* particle = dotParticles;
-    int size = rsAllocationGetDimX(rsGetAllocation(dotParticles));
-    for(int i=0; i<size; i++){
-        
-        if(particle->life < 0 || particle->position.x < -1.1 || particle->position.x >1.1 || particle->position.y < -1.7 || particle->position.y >1.7){
-            particle->position.x = rsRand(-1.0f, 1.0f);
-            particle->position.y = rsRand(-1.0f, 1.0f);
-
-            particle->speed = rsRand(0.0002f, 0.02f);
-            particle->wander = rsRand(0.50f, 1.5f);
-            particle->life = rsRand(300.0f, 800.0f);
-            particle->alphaStart = rsRand(0.01f, 1.0f);
-            particle->alpha = particle->alphaStart;
-            
-            particle->death = 0.0;
-        }
-        
-        
-        
-        
-            float noiseval = noisef2(particle->position.x*0.65, particle->position.y*0.65);
-            
-            float speed = noiseval * particle->speed + 0.01;
-            float angle = 360 * noiseval * particle->wander;
-            float rads = angle * 3.14159265 / 180.0;
-        
-            particle->position.x += cos(rads) * speed * 0.24;
-            particle->position.y += sin(rads) * speed * 0.24;
-        
-    
-            particle->life--;
-            particle->death++;
-        
-            float dist = sqrt(particle->position.x*particle->position.x + particle->position.y*particle->position.y);
-            if(dist < 0.75){
-                dist = 0;
-                particle->alphaStart *= (1-dist);
-                
-            } else {
-                dist = dist-0.75;
-                if(particle->alphaStart < 1.0f){
-                    particle->alphaStart +=0.01;
-                    particle->alphaStart *= (1-dist);
-                    
-                    
-                }
-            }
-            
-        
-            if(particle->death < 101.0){
-                particle->alpha = (particle->alphaStart)*(particle->death)/100.0;
-            } else if(particle->life < 101.0){
-                particle->alpha = particle->alpha*particle->life/100.0;
-            } else {
-                particle->alpha = particle->alphaStart;
-            }
-        
-            particle->offsetX = xOffset;
-        
-        
-        
-        particle++;
-    }
-    
-    
     rsgDrawMesh(dotMesh);
 
+    // bg
+    rsgBindProgramVertex(vertBg);
+    rsgBindProgramFragment(fragBg);
+    rsgDrawMesh(gBackgroundMesh);
+
+    // dots
+    Particle_t* particle = dotParticles;
+    size = rsAllocationGetDimX(rsGetAllocation(dotParticles));
+    for(int i=0; i<size; i++){
+
+        if(particle->life < 0 || particle->position.x < -1.2 ||
+           particle->position.x >1.2 || particle->position.y < -1.7 ||
+           particle->position.y >1.7){
+            particle->position.x = rsRand(-1.0f, 1.0f);
+            particle->position.y = rsRand(-1.0f, 1.0f);
+            particle->speed = rsRand(0.0002f, 0.02f);
+            particle->wander = rsRand(0.50f, 1.5f);
+            particle->death = 0;
+            particle->life = rsRand(300, 800);
+            particle->alphaStart = rsRand(0.01f, 1.0f);
+            particle->alpha = particle->alphaStart;
+        }
+
+        float noiseval = noisef2(particle->position.x, particle->position.y);
+
+        float speed = noiseval * particle->speed + 0.01;
+        float angle = 360 * noiseval * particle->wander;
+        float rads = angle * 3.14159265 / 180.0;
+
+        particle->position.x += cos(rads) * speed * 0.24;
+        particle->position.y += sin(rads) * speed * 0.24;
+
+        particle->life--;
+        particle->death++;
+
+        float dist = sqrt(particle->position.x*particle->position.x +
+                          particle->position.y*particle->position.y);
+        if(dist < 0.95){
+            dist = 0;
+            particle->alphaStart *= (1-dist);
+
+        } else {
+            dist = dist-0.95;
+            if(particle->alphaStart < 1.0f){
+                particle->alphaStart +=0.01;
+                particle->alphaStart *= (1-dist);
+            }
+        }
+
+        if(particle->death < 101){
+            particle->alpha = (particle->alphaStart)*(particle->death)/100.0;
+        } else if(particle->life < 101){
+            particle->alpha = particle->alpha*particle->life/100.0;
+        } else {
+            particle->alpha = particle->alphaStart;
+        }
+
+        particle++;
+    }
+
     return 35;
+
 }

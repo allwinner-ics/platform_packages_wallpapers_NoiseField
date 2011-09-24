@@ -28,7 +28,7 @@ public class NoiseFieldWallpaper extends WallpaperService {
             super.onCreate(surfaceHolder);
             setTouchEventsEnabled(true);
             surfaceHolder.setSizeFromLayout();
-            surfaceHolder.setFormat(PixelFormat.RGBA_8888);
+            surfaceHolder.setFormat(PixelFormat.RGB_888);
 
             DisplayMetrics metrics = new DisplayMetrics();
             ((WindowManager) getApplication().getSystemService(Service.WINDOW_SERVICE))
