@@ -10,6 +10,8 @@ import android.service.wallpaper.WallpaperService.Engine;
 import android.util.DisplayMetrics;
 import android.view.SurfaceHolder;
 import android.view.WindowManager;
+import android.util.Log;
+import android.view.MotionEvent;
 
 public class NoiseFieldWallpaper extends WallpaperService {
 
@@ -21,7 +23,7 @@ public class NoiseFieldWallpaper extends WallpaperService {
     private class RenderScriptEngine extends Engine {
         private RenderScriptGL mRenderScript = null;
         private NoiseFieldRS mWallpaperRS = null;
-        private int densityDPI;
+        private int mDensityDPI;
 
         @Override
         public void onCreate(SurfaceHolder surfaceHolder) {
@@ -33,7 +35,7 @@ public class NoiseFieldWallpaper extends WallpaperService {
             DisplayMetrics metrics = new DisplayMetrics();
             ((WindowManager) getApplication().getSystemService(Service.WINDOW_SERVICE))
                     .getDefaultDisplay().getMetrics(metrics);
-            densityDPI = metrics.densityDpi;
+            mDensityDPI = metrics.densityDpi;
         }
 
         @Override
@@ -71,7 +73,10 @@ public class NoiseFieldWallpaper extends WallpaperService {
         }
 
         @Override
-        public void onSurfaceChanged(SurfaceHolder surfaceHolder, int format, int width, int height) {
+        public void onSurfaceChanged(SurfaceHolder surfaceHolder,
+                                     int format,
+                                     int width,
+                                     int height) {
             super.onSurfaceChanged(surfaceHolder, format, width, height);
 
             if (mRenderScript != null) {
@@ -80,7 +85,7 @@ public class NoiseFieldWallpaper extends WallpaperService {
 
             if (mWallpaperRS == null) {
                 mWallpaperRS = new NoiseFieldRS();
-                mWallpaperRS.init(densityDPI, mRenderScript, getResources(), width, height);
+                mWallpaperRS.init(mDensityDPI, mRenderScript, getResources(), width, height);
                 mWallpaperRS.start();
             }
 
@@ -88,12 +93,9 @@ public class NoiseFieldWallpaper extends WallpaperService {
         }
 
         @Override
-        public Bundle onCommand(String action, int x, int y, int z, Bundle extras,
-                boolean resultRequested) {
-            if (mWallpaperRS != null) {
-                // return mWallpaperRS.onCommand(action, x, y, z, extras, resultRequested);
-            }
-            return null;
+        public void onTouchEvent(MotionEvent ev) {
+            super.onTouchEvent(ev);
+            mWallpaperRS.onTouchEvent(ev);
         }
 
         @Override
@@ -106,12 +108,6 @@ public class NoiseFieldWallpaper extends WallpaperService {
                     mWallpaperRS.stop();
                 }
             }
-        }
-
-        @Override
-        public void onOffsetsChanged(float xOffset, float yOffset, float xOffsetStep,
-                float yOffsetStep, int xPixelOffset, int yPixelOffset) {
-            mWallpaperRS.setOffset(xOffset, yOffset, xPixelOffset, yPixelOffset);
         }
     }
 }

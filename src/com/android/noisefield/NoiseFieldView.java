@@ -27,7 +27,6 @@ public class NoiseFieldView extends RSSurfaceView {
             mRender = new NoiseFieldRS();
             mRender.init(240, mRS, getResources(), w, h);
         }
-
     }
 
     @Override
